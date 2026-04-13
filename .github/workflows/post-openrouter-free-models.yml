@@ -1,0 +1,60 @@
+name: Post OpenRouter free models to Bluesky
+
+on:
+  schedule:
+    # UTC 0:00 / 12:00 → JST 09:00 / 21:00
+    - cron: "0 0,12 * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Manual run reason"
+        required: false
+        default: "manual run"
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Show trigger info
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "reason=${{ github.event.inputs.reason }}"
+
+      # 🔍 デバッグ（秘密を漏らさず状態確認）
+      - name: Debug Bluesky secret fingerprints
+        env:
+          BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import os
+          import hashlib
+
+          identifier = os.getenv("BLUESKY_IDENTIFIER", "")
+          password = os.getenv("BLUESKY_APP_PASSWORD", "")
+
+          print("identifier_sha256=", hashlib.sha256(identifier.encode("utf-8")).hexdigest())
+          print("password_sha256=", hashlib.sha256(password.encode("utf-8")).hexdigest())
+          PY
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Post free models to Bluesky
+        env:
+          BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+        run: python scripts/post_openrouter_free_models.py
