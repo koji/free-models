@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import requests
-from atproto import Client
+from atproto import Client, models
 
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 POST_CHAR_LIMIT = 300
@@ -152,11 +152,33 @@ def create_bluesky_client() -> Client:
     return client
 
 
+def to_strong_ref(
+    post: models.AppBskyFeedPost.CreateRecordResponse,
+) -> models.ComAtprotoRepoStrongRef.Main:
+    return models.ComAtprotoRepoStrongRef.Main(uri=post.uri, cid=post.cid)
+
+
 def post_sequence(client: Client, texts: list[str]) -> None:
+    root_ref: models.ComAtprotoRepoStrongRef.Main | None = None
+    parent_ref: models.ComAtprotoRepoStrongRef.Main | None = None
+
     for index, text in enumerate(texts, start=1):
         print(f"Posting Bluesky post #{index}...", flush=True)
-        post = client.send_post(text=text)
+
+        reply_to = None
+        if root_ref is not None and parent_ref is not None:
+            reply_to = models.AppBskyFeedPost.ReplyRef(
+                root=root_ref,
+                parent=parent_ref,
+            )
+
+        post = client.send_post(text=text, reply_to=reply_to)
         print(f"Posted Bluesky post #{index}: {post.uri}", flush=True)
+
+        current_ref = to_strong_ref(post)
+        if root_ref is None:
+            root_ref = current_ref
+        parent_ref = current_ref
 
 
 def main() -> int:
