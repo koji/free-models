@@ -31,7 +31,7 @@ jobs:
           echo "event_name=${{ github.event_name }}"
           echo "reason=${{ github.event.inputs.reason }}"
 
-      # 🔍 デバッグ（秘密を漏らさず状態確認）
+      # debug for bluesky
       - name: Debug Bluesky secret fingerprints
         env:
           BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
