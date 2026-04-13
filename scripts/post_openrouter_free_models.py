@@ -82,7 +82,7 @@ def fetch_models() -> list[Model]:
 
 def build_header(model_count: int) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    return f"OpenRouter free models ({model_count})\nUpdated: {now}\n#OpenRouter #LLM\nhttps://openrouter.ai/models?q=free"
+    return f"OpenRouter free models ({model_count})\nUpdated: {now}\n#OpenRouter #LLM\nhttps://openrouter.ai/models?q=free\n"
 
 
 def normalize_line(line: str, max_len: int) -> str:
