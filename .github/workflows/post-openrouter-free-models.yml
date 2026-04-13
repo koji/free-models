@@ -31,23 +31,6 @@ jobs:
           echo "event_name=${{ github.event_name }}"
           echo "reason=${{ github.event.inputs.reason }}"
 
-      # debug for bluesky
-      - name: Debug Bluesky secret fingerprints
-        env:
-          BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
-          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
-        run: |
-          python - <<'PY'
-          import os
-          import hashlib
-
-          identifier = os.getenv("BLUESKY_IDENTIFIER", "")
-          password = os.getenv("BLUESKY_APP_PASSWORD", "")
-
-          print("identifier_sha256=", hashlib.sha256(identifier.encode("utf-8")).hexdigest())
-          print("password_sha256=", hashlib.sha256(password.encode("utf-8")).hexdigest())
-          PY
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
