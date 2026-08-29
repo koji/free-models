@@ -1,5 +1,6 @@
 export interface Env {
   FREE_MODELS_KV: KVNamespace;
+  CRON_SECRET?: string;
 }
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
@@ -47,13 +48,15 @@ async function fetchFreeModels(): Promise<Model[]> {
   const payload = (await res.json()) as { data?: unknown };
   const items = Array.isArray(payload.data) ? payload.data : [];
   const models: Model[] = [];
-  for (const item of items as Record<string, unknown>[]) {
-    const pricing = item["pricing"] as Record<string, unknown> | undefined;
+  for (const item of items) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) continue;
+    const record = item as Record<string, unknown>;
+    const pricing = record["pricing"] as Record<string, unknown> | undefined;
     if (!isFreePricing(pricing)) continue;
-    const modelId = item["id"];
+    const modelId = record["id"];
     if (typeof modelId !== "string" || !modelId) continue;
-    const name = typeof item["name"] === "string" && item["name"] ? (item["name"] as string) : modelId;
-    const cl = item["context_length"];
+    const name = typeof record["name"] === "string" && record["name"] ? (record["name"] as string) : modelId;
+    const cl = record["context_length"];
     const contextLength = typeof cl === "number" && Number.isFinite(cl) ? cl : null;
     models.push({ id: modelId, name, context_length: contextLength });
   }
@@ -100,8 +103,18 @@ export default {
 
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    // Health check
+    // Manual trigger — protected by CRON_SECRET to avoid unauthenticated abuse
     if (url.pathname === "/__scheduled" && request.method === "POST") {
+      if (env.CRON_SECRET) {
+        const auth = request.headers.get("authorization");
+        const expected = `Bearer ${env.CRON_SECRET}`;
+        if (auth !== expected) {
+          return new Response("unauthorized", { status: 401 });
+        }
+      } else {
+        // No secret configured — deny manual trigger in production to prevent abuse
+        return new Response("manual trigger disabled (set CRON_SECRET)", { status: 403 });
+      }
       try {
         await runScheduled(env);
         return new Response("scheduled ok", { status: 200 });
