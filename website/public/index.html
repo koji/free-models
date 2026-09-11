@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenRouter Free Models</title>
+    <meta
+      name="description"
+      content="Hourly updated list of free models on OpenRouter."
+    />
+    <meta property="og:title" content="OpenRouter Free Models" />
+    <meta
+      property="og:description"
+      content="Hourly updated list of free models on OpenRouter."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#529fcb" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+
+    <header class="site-header">
+      <div class="container">
+        <p class="eyebrow">Hourly updated · Cloudflare Workers Cron</p>
+        <h1 class="display">OpenRouter Free Models</h1>
+        <p class="lead">
+          A simple, hourly snapshot of all free models available on
+          <a href="https://openrouter.ai/models?q=free" target="_blank" rel="noopener noreferrer">OpenRouter</a>.
+          Data is refreshed every hour via Cloudflare Workers and served from KV.
+        </p>
+      </div>
+    </header>
+
+    <main id="main" class="container">
+      <section class="meta-card" aria-label="Dataset info">
+        <div class="meta-row">
+          <div class="meta-stat">
+            <span class="meta-label">Models</span>
+            <span class="meta-value" id="count">—</span>
+          </div>
+          <div class="meta-stat">
+            <span class="meta-label">Updated</span>
+            <span class="meta-value" id="updatedAt">—</span>
+          </div>
+          <div class="meta-actions">
+            <button id="reloadBtn" type="button" class="btn btn-primary">Reload</button>
+            <a
+              class="btn btn-ghost"
+              href="https://openrouter.ai/models?q=free"
+              target="_blank"
+              rel="noopener noreferrer"
+              >OpenRouter</a
+            >
+          </div>
+        </div>
+        <div class="search-row">
+          <label for="searchInput" class="search-label">Search models</label>
+          <input
+            id="searchInput"
+            class="search-input"
+            type="search"
+            placeholder="Filter by model ID or name (e.g. llama)"
+            autocomplete="off"
+          />
+          <span class="search-hint" id="searchHint" aria-live="polite"></span>
+        </div>
+        <p class="meta-note">
+          Source: <code>https://openrouter.ai/api/v1/models</code> · Free = every numeric pricing field is 0.
+        </p>
+      </section>
+
+      <section class="table-section" aria-label="Models table">
+        <div id="status" class="status" role="status" aria-live="polite">Loading…</div>
+        <div class="table-wrap" id="tableWrap" hidden>
+          <table class="models-table" id="modelsTable">
+            <thead>
+              <tr>
+                <th>
+                  <button type="button" class="th-sort" data-sort="id" aria-label="Sort by Model ID">
+                    Model ID <span class="sort-ind" data-ind="id"></span>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="th-sort" data-sort="name" aria-label="Sort by Name">
+                    Name <span class="sort-ind" data-ind="name"></span>
+                  </button>
+                </th>
+                <th class="col-ctx">
+                  <button type="button" class="th-sort" data-sort="context_length" aria-label="Sort by Context Length">
+                    Context <span class="sort-ind" data-ind="context_length"></span>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <p id="emptyMsg" class="empty" hidden>No models match your search.</p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p class="footer-text">
+          Built for <a href="https://openrouter.ai/models?q=free" target="_blank" rel="noopener noreferrer">OpenRouter</a>
+          · <a href="https://bsky.app/profile/baxin.bsky.social" target="_blank" rel="noopener noreferrer">Bluesky</a>
+          · <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </p>
+        <p class="footer-muted">Not affiliated with OpenRouter. Data fetched hourly and cached in Cloudflare KV.</p>
+      </div>
+    </footer>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

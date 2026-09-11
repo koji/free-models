@@ -1,0 +1,11 @@
+name = "openrouter-free-models-cron"
+main = "src/cron.ts"
+compatibility_date = "2026-08-28"
+
+[triggers]
+crons = ["0 * * * *"]
+
+[[kv_namespaces]]
+binding = "FREE_MODELS_KV"
+id = "b7d5e8b3bde54ab480f34f7cbe92e49a"
+preview_id = "7802533448e2491595577eaf5bf490a1"
