@@ -10,7 +10,8 @@ from typing import Any
 import requests
 from atproto import Client, models
 
-OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
+OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models?output_modalities=all"
+FREE_SUFFIX = ":free"
 POST_CHAR_LIMIT = 300
 SAFETY_MARGIN = 4
 
@@ -29,6 +30,12 @@ def to_decimal(value: Any) -> Decimal | None:
         return Decimal(str(value))
     except (InvalidOperation, ValueError):
         return None
+
+
+def is_free_model(model_id: Any, pricing: dict[str, Any] | None) -> bool:
+    if not isinstance(model_id, str) or not model_id.endswith(FREE_SUFFIX):
+        return False
+    return is_free_pricing(pricing)
 
 
 def is_free_pricing(pricing: dict[str, Any] | None) -> bool:
@@ -61,10 +68,10 @@ def fetch_models() -> list[Model]:
 
     models: list[Model] = []
     for item in items:
-        if not is_free_pricing(item.get("pricing")):
+        model_id = item.get("id")
+        if not is_free_model(model_id, item.get("pricing")):
             continue
 
-        model_id = item.get("id")
         if not model_id:
             continue
 
