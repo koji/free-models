@@ -3,8 +3,9 @@ export interface Env {
   CRON_SECRET?: string;
 }
 
-const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
+const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models?output_modalities=all";
 const KV_KEY = "openrouter:free-models:latest";
+const FREE_SUFFIX = ":free";
 
 interface Model {
   id: string;
@@ -37,6 +38,11 @@ function isFreePricing(pricing: Record<string, unknown> | null | undefined): boo
   return hasNumeric;
 }
 
+function isFreeModel(modelId: unknown, pricing: Record<string, unknown> | null | undefined): boolean {
+  if (typeof modelId !== "string" || !modelId.endsWith(FREE_SUFFIX)) return false;
+  return isFreePricing(pricing);
+}
+
 async function fetchFreeModels(): Promise<Model[]> {
   const res = await fetch(OPENROUTER_MODELS_URL, {
     headers: {
@@ -51,9 +57,9 @@ async function fetchFreeModels(): Promise<Model[]> {
   for (const item of items) {
     if (typeof item !== "object" || item === null || Array.isArray(item)) continue;
     const record = item as Record<string, unknown>;
-    const pricing = record["pricing"] as Record<string, unknown> | undefined;
-    if (!isFreePricing(pricing)) continue;
     const modelId = record["id"];
+    const pricing = record["pricing"] as Record<string, unknown> | undefined;
+    if (!isFreeModel(modelId, pricing)) continue;
     if (typeof modelId !== "string" || !modelId) continue;
     const name = typeof record["name"] === "string" && record["name"] ? (record["name"] as string) : modelId;
     const cl = record["context_length"];
