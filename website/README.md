@@ -73,7 +73,7 @@ pnpm deploy:pages
 
 ## API
 
-- `GET /api/models` → `200 { updatedAt, count, models }` with `Cache-Control: public, max-age=60`
+- `GET /api/models` → `200 { updatedAt, count, models }` with `Cache-Control: public, max-age=600`
 - KV empty → `503 { error: "data not yet available" }`
 
 ## Data logic

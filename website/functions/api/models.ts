@@ -28,7 +28,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     status: 200,
     headers: {
       "content-type": "application/json; charset=utf-8",
-        "cache-control": "public, max-age=600",
+      "cache-control": "public, max-age=600",
     },
   });
 };
