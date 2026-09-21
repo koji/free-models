@@ -16,6 +16,8 @@ let allModels = [];
 let filtered = [];
 let sortKey = "id";
 let sortDir = "asc"; // asc | desc
+let payloadUpdatedAt = null;
+let payloadWindowDays = 7;
 
 function formatContextLength(n) {
   if (n === null || n === undefined) return "-";
@@ -48,6 +50,24 @@ function escapeHtml(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function isNew(firstSeenAt, nowRef, windowDays = 7) {
+  if (typeof firstSeenAt !== "string" || typeof nowRef !== "string") return false;
+  const firstMs = Date.parse(firstSeenAt);
+  const refMs = Date.parse(nowRef);
+  if (!Number.isFinite(firstMs) || !Number.isFinite(refMs)) return false;
+  const w = typeof windowDays === "number" && Number.isFinite(windowDays) && windowDays >= 0 ? windowDays : 7;
+  const diff = refMs - firstMs;
+  if (diff < 0) return false;
+  return diff <= w * 24 * 60 * 60 * 1000;
+}
+
+function formatAddedDate(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (x) => String(x).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
 function sortModels(list) {
@@ -99,9 +119,14 @@ function renderTable() {
   for (const m of filtered) {
     const tr = document.createElement("tr");
     const href = `https://openrouter.ai/${encodeURI(m.id)}`;
+    const showNew = isNew(m.firstSeenAt, payloadUpdatedAt, payloadWindowDays);
+    const addedDate = showNew ? formatAddedDate(m.firstSeenAt) : "";
+    const badge = showNew
+      ? ` <span class="badge-new" title="Added ${escapeHtml(addedDate)}" aria-label="New model, added ${escapeHtml(addedDate)}">NEW</span>`
+      : "";
     tr.innerHTML = `
       <td class="cell-id"><a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(m.id)}</a></td>
-      <td class="cell-name">${escapeHtml(m.name)}</td>
+      <td class="cell-name">${escapeHtml(m.name)}${badge}</td>
       <td class="cell-ctx">${escapeHtml(formatContextLength(m.context_length))}</td>
     `;
     frag.appendChild(tr);
@@ -144,6 +169,11 @@ async function load() {
     if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
     allModels = Array.isArray(data.models) ? data.models : [];
+    payloadUpdatedAt = typeof data.updatedAt === "string" ? data.updatedAt : null;
+    payloadWindowDays =
+      typeof data.newWindowDays === "number" && Number.isFinite(data.newWindowDays) && data.newWindowDays >= 0
+        ? data.newWindowDays
+        : 7;
     els.count.textContent = String(data.count ?? allModels.length);
     els.updatedAt.textContent = formatUpdatedAt(data.updatedAt);
     hideStatus();
@@ -151,6 +181,8 @@ async function load() {
   } catch (e) {
     allModels = [];
     filtered = [];
+    payloadUpdatedAt = null;
+    payloadWindowDays = 7;
     els.count.textContent = "—";
     els.updatedAt.textContent = "—";
     els.tableWrap.hidden = true;

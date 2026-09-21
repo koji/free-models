@@ -390,6 +390,26 @@ input:focus-visible {
   max-width: 420px;
 }
 
+.badge-new {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.6;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  border-radius: var(--radius-xl);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.cell-name .badge-new {
+  vertical-align: middle;
+}
+
 .cell-ctx {
   text-align: right;
   font-variant-numeric: tabular-nums;
