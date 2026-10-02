@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -15,6 +16,8 @@ FREE_SUFFIX = ":free"
 STEALTH_MARKER = "stealth/"
 POST_CHAR_LIMIT = 300
 SAFETY_MARGIN = 4
+FETCH_RETRIES = 2
+RETRY_BACKOFF_S = 1
 
 
 @dataclass(frozen=True)
@@ -56,6 +59,20 @@ def is_free_pricing(pricing: dict[str, Any] | None) -> bool:
 
 
 def fetch_models() -> list[Model]:
+    last_error: Exception | None = None
+    for attempt in range(FETCH_RETRIES):
+        try:
+            return _fetch_models_once()
+        except Exception as exc:
+            # Retry any fetch or parse failure; the last error surfaces below.
+            last_error = exc
+            if attempt + 1 < FETCH_RETRIES:
+                time.sleep(RETRY_BACKOFF_S * (attempt + 1))
+    assert last_error is not None
+    raise last_error
+
+
+def _fetch_models_once() -> list[Model]:
     headers = {
         "Accept": "application/json",
         "User-Agent": "openrouter-free-models-bot/1.0",
