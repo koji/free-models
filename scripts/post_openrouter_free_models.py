@@ -34,7 +34,7 @@ def to_decimal(value: Any) -> Decimal | None:
 
 
 def is_free_model(model_id: Any, pricing: dict[str, Any] | None) -> bool:
-    if not isinstance(model_id, str) or not (model_id.endswith(FREE_SUFFIX) or STEALTH_MARKER in model_id):
+    if not isinstance(model_id, str) or not (model_id.endswith(FREE_SUFFIX) or model_id.startswith(STEALTH_MARKER)):
         return False
     return is_free_pricing(pricing)
 

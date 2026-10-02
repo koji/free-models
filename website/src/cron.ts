@@ -138,7 +138,7 @@ function isFreePricing(pricing: Record<string, unknown> | null | undefined): boo
 }
 
 function isFreeModel(modelId: unknown, pricing: Record<string, unknown> | null | undefined): boolean {
-  if (typeof modelId !== "string" || !(modelId.endsWith(FREE_SUFFIX) || modelId.includes(STEALTH_MARKER))) return false;
+  if (typeof modelId !== "string" || !(modelId.endsWith(FREE_SUFFIX) || modelId.startsWith(STEALTH_MARKER))) return false;
   return isFreePricing(pricing);
 }
 
