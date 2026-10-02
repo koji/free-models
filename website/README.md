@@ -78,7 +78,7 @@ pnpm deploy:pages
 
 ## Data logic
 
-- Free model = id ends with `:free` and every numeric field in `pricing` is `0`, with at least one numeric field present (mirrors `scripts/post_openrouter_free_models.py:is_free_model`)
+- Free model = id ends with `:free` or contains `stealth/` and every numeric field in `pricing` is `0`, with at least one numeric field present (mirrors `scripts/post_openrouter_free_models.py:is_free_model`)
 - Source URL uses `?output_modalities=all` so speech and embedding free models are included
 - Sorted by `model_id` (case-insensitive) by default
 - On fetch failure: KV is not overwritten (previous data kept), one retry with backoff

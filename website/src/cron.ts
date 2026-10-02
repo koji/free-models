@@ -6,6 +6,7 @@ export interface Env {
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models?output_modalities=all";
 const KV_KEY = "openrouter:free-models:latest";
 const FREE_SUFFIX = ":free";
+const STEALTH_MARKER = "stealth/";
 
 export const STORED_VERSION = 2;
 export const NEW_WINDOW_DAYS = 7;
@@ -137,7 +138,7 @@ function isFreePricing(pricing: Record<string, unknown> | null | undefined): boo
 }
 
 function isFreeModel(modelId: unknown, pricing: Record<string, unknown> | null | undefined): boolean {
-  if (typeof modelId !== "string" || !modelId.endsWith(FREE_SUFFIX)) return false;
+  if (typeof modelId !== "string" || !(modelId.endsWith(FREE_SUFFIX) || modelId.includes(STEALTH_MARKER))) return false;
   return isFreePricing(pricing);
 }
 
