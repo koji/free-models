@@ -12,6 +12,7 @@ from atproto import Client, models
 
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models?output_modalities=all"
 FREE_SUFFIX = ":free"
+STEALTH_MARKER = "stealth/"
 POST_CHAR_LIMIT = 300
 SAFETY_MARGIN = 4
 
@@ -33,7 +34,7 @@ def to_decimal(value: Any) -> Decimal | None:
 
 
 def is_free_model(model_id: Any, pricing: dict[str, Any] | None) -> bool:
-    if not isinstance(model_id, str) or not model_id.endswith(FREE_SUFFIX):
+    if not isinstance(model_id, str) or not (model_id.endswith(FREE_SUFFIX) or STEALTH_MARKER in model_id):
         return False
     return is_free_pricing(pricing)
 
