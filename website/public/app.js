@@ -10,6 +10,7 @@ const els = {
   searchInput: document.getElementById("searchInput"),
   searchHint: document.getElementById("searchHint"),
   reloadBtn: document.getElementById("reloadBtn"),
+  staleNote: document.getElementById("staleNote"),
 };
 
 let allModels = [];
@@ -176,6 +177,7 @@ async function load() {
         : 7;
     els.count.textContent = String(data.count ?? allModels.length);
     els.updatedAt.textContent = formatUpdatedAt(data.updatedAt);
+    updateStaleNote(data);
     hideStatus();
     applyFilter();
   } catch (e) {
@@ -187,8 +189,30 @@ async function load() {
     els.updatedAt.textContent = "—";
     els.tableWrap.hidden = true;
     els.emptyMsg.hidden = true;
+    els.staleNote.hidden = true;
+    els.staleNote.textContent = "";
     setStatus(`Data not yet available. Please try again later. (${escapeHtml(String(e.message || e))})`, "error");
     els.searchHint.textContent = "";
+  }
+}
+
+function updateStaleNote(data) {
+  // Old payloads lack the staleness fields — keep the note hidden for them.
+  const failures =
+    typeof data.consecutiveFailures === "number" &&
+    Number.isFinite(data.consecutiveFailures) &&
+    data.consecutiveFailures > 0
+      ? Math.floor(data.consecutiveFailures)
+      : 0;
+  if (data.stale === true || failures > 0) {
+    const times = failures === 1 ? "once" : `${failures} times`;
+    els.staleNote.textContent =
+      `Warning: this data may be stale — the updater failed ${times} in a row. ` +
+      `Last successful update: ${formatUpdatedAt(data.updatedAt)}.`;
+    els.staleNote.hidden = false;
+  } else {
+    els.staleNote.hidden = true;
+    els.staleNote.textContent = "";
   }
 }
 

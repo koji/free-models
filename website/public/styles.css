@@ -285,6 +285,13 @@ input:focus-visible {
   border-radius: var(--radius-sm);
 }
 
+/* Staleness warning: shown when the cron worker reports repeated update failures */
+.stale-note {
+  margin-top: var(--space-16);
+  padding: var(--space-16);
+  font-size: 14px;
+}
+
 /* Table section */
 .table-section {
   margin-top: var(--space-32);
