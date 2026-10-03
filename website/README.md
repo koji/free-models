@@ -12,8 +12,8 @@ Hourly updated list of free models on OpenRouter. Cloudflare Workers Cron + Page
 - `website/src/cron.ts` — Cron Worker (plain TypeScript, `scheduled` + `fetch` for health check)
 - `website/functions/api/models.ts` — Pages Function `GET /api/models`
 - `website/public/` — static site (plain HTML/CSS/JS, no build)
-- KV binding: `FREE_MODELS_KV`, key: `openrouter:free-models:latest`
-- Stored payload: `{ updatedAt: ISO8601, count: number, models: [{ id, name, context_length }] }`
+- KV binding: `FREE_MODELS_KV`, keys: `openrouter:free-models:latest` (payload), `openrouter:free-models:health` (worker health)
+- Stored payload: `{ updatedAt: ISO8601, count: number, models: [{ id, name, context_length }], stale?: boolean, consecutiveFailures?: number, lastErrorAt?: string | null }` (staleness fields are additive; old payloads without them still render, the warning banner stays hidden)
 
 ## Setup
 
@@ -73,7 +73,8 @@ pnpm deploy:pages
 
 ## API
 
-- `GET /api/models` → `200 { updatedAt, count, models }` with `Cache-Control: public, max-age=600`
+- `GET /api/models` → `200 { updatedAt, count, models, stale?, consecutiveFailures?, lastErrorAt? }` with `Cache-Control: public, max-age=600`
+  - `stale: true` or `consecutiveFailures > 0` → the site shows a staleness warning near the dataset info
 - KV empty → `503 { error: "data not yet available" }`
 
 ## Data logic
@@ -81,7 +82,7 @@ pnpm deploy:pages
 - Free model = (id ends with `:free` or starts with `stealth/`) and every numeric field in `pricing` is `0`, with at least one numeric field present (mirrors `scripts/post_openrouter_free_models.py:is_free_model`)
 - Source URL uses `?output_modalities=all` so speech and embedding free models are included
 - Sorted by `model_id` (case-insensitive) by default
-- On fetch failure: KV is not overwritten (previous data kept), one retry with backoff
+- On fetch or KV-write failure: KV payload is not overwritten (previous data kept), one retry with backoff, and the failure is recorded in `openrouter:free-models:health` as `{ consecutiveFailures, lastErrorAt, lastError }`; the counter resets to 0 on the next successful run (the small-list safety guard is not counted as a failure)
 
 ## Design
 

@@ -5,8 +5,10 @@ export interface Env {
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models?output_modalities=all";
 const KV_KEY = "openrouter:free-models:latest";
+const HEALTH_KEY = "openrouter:free-models:health";
 const FREE_SUFFIX = ":free";
 const STEALTH_MARKER = "stealth/";
+const MAX_ERROR_LEN = 500;
 
 export const STORED_VERSION = 2;
 export const NEW_WINDOW_DAYS = 7;
@@ -33,6 +35,51 @@ export interface StoredPayload {
   count: number;
   newWindowDays: number;
   models: TrackedFreeModel[];
+  // Staleness markers (additive; absent on payloads written before this change)
+  stale?: boolean;
+  consecutiveFailures?: number;
+  lastErrorAt?: string | null;
+}
+
+// Worker health, tracked under HEALTH_KEY on every completed run.
+// Lets the site surface repeated update failures instead of silently serving stale data.
+export interface WorkerHealth {
+  consecutiveFailures: number;
+  lastErrorAt: string | null;
+  lastError: string | null;
+}
+
+export function emptyHealth(): WorkerHealth {
+  return { consecutiveFailures: 0, lastErrorAt: null, lastError: null };
+}
+
+export async function loadHealth(kv: KVNamespace): Promise<WorkerHealth> {
+  const raw = await kv.get(HEALTH_KEY);
+  if (!raw) return emptyHealth();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return emptyHealth();
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return emptyHealth();
+  const record = parsed as Record<string, unknown>;
+  const consecutiveFailures =
+    typeof record["consecutiveFailures"] === "number" && Number.isFinite(record["consecutiveFailures"])
+      ? Math.max(0, Math.floor(record["consecutiveFailures"]))
+      : 0;
+  const lastErrorAt = typeof record["lastErrorAt"] === "string" ? record["lastErrorAt"] : null;
+  const lastError = typeof record["lastError"] === "string" ? record["lastError"] : null;
+  return { consecutiveFailures, lastErrorAt, lastError };
+}
+
+async function storeHealth(kv: KVNamespace, health: WorkerHealth): Promise<void> {
+  await kv.put(HEALTH_KEY, JSON.stringify(health));
+}
+
+function errorMessage(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.length > MAX_ERROR_LEN ? msg.slice(0, MAX_ERROR_LEN) : msg;
 }
 
 export function backfillTimestamp(now: string): string {
@@ -187,36 +234,73 @@ async function fetchWithRetry(attempts = 2): Promise<Model[]> {
 
 async function runScheduled(env: Env): Promise<void> {
   const now = new Date().toISOString();
-  const fresh = await fetchWithRetry(2);
-  const prior = await loadPriorCatalog(env.FREE_MODELS_KV, now);
-  if (isSmallListDrop(prior.size, fresh.length)) {
-    console.warn(`Small-list guard: fresh=${fresh.length} prev=${prior.size}, keeping previous flags`);
-    return;
+  const kv = env.FREE_MODELS_KV;
+  const priorHealth = await loadHealth(kv);
+  try {
+    const fresh = await fetchWithRetry(2);
+    const prior = await loadPriorCatalog(kv, now);
+    if (isSmallListDrop(prior.size, fresh.length)) {
+      // Safety guard, not a failure: keep previous data and health as-is.
+      console.warn(`Small-list guard: fresh=${fresh.length} prev=${prior.size}, keeping previous flags`);
+      return;
+    }
+    const currentIds = fresh.map((m) => m.id);
+    const prunedPrior = pruneRegistry(prior, new Set(currentIds), now);
+    let merged: Map<string, string>;
+    if (prunedPrior.size === 0) {
+      const backfill = backfillTimestamp(now);
+      merged = new Map(currentIds.map((id) => [id, backfill] as [string, string]));
+    } else {
+      merged = mergeFirstSeen(prunedPrior, currentIds, now);
+    }
+    const tracked: TrackedFreeModel[] = fresh.map((m) => ({
+      id: m.id,
+      name: m.name,
+      context_length: m.context_length,
+      firstSeenAt: merged.get(m.id) ?? now,
+    }));
+    const payload: StoredPayload = {
+      version: STORED_VERSION,
+      updatedAt: now,
+      count: tracked.length,
+      newWindowDays: NEW_WINDOW_DAYS,
+      models: tracked,
+      stale: false,
+      consecutiveFailures: 0,
+      lastErrorAt: null,
+    };
+    await kv.put(KV_KEY, JSON.stringify(payload));
+    await storeHealth(kv, emptyHealth());
+    console.log(`Stored ${tracked.length} free models at ${payload.updatedAt}`);
+  } catch (e) {
+    // Record the failure (fetch or KV write) before the error propagates,
+    // so repeated failures are visible instead of failing silently.
+    const health: WorkerHealth = {
+      consecutiveFailures: priorHealth.consecutiveFailures + 1,
+      lastErrorAt: now,
+      lastError: errorMessage(e),
+    };
+    try {
+      await storeHealth(kv, health);
+    } catch {
+      // Health record is best-effort; the original error still propagates.
+    }
+    // Patch the stored payload's staleness markers so the site can warn
+    // visitors; the models and updatedAt stay from the last successful run.
+    try {
+      const raw = await kv.get(KV_KEY);
+      if (raw) {
+        const payload = JSON.parse(raw) as StoredPayload;
+        payload.stale = true;
+        payload.consecutiveFailures = health.consecutiveFailures;
+        payload.lastErrorAt = health.lastErrorAt;
+        await kv.put(KV_KEY, JSON.stringify(payload));
+      }
+    } catch {
+      // Staleness patch is best-effort; the original error still propagates.
+    }
+    throw e;
   }
-  const currentIds = fresh.map((m) => m.id);
-  const prunedPrior = pruneRegistry(prior, new Set(currentIds), now);
-  let merged: Map<string, string>;
-  if (prunedPrior.size === 0) {
-    const backfill = backfillTimestamp(now);
-    merged = new Map(currentIds.map((id) => [id, backfill] as [string, string]));
-  } else {
-    merged = mergeFirstSeen(prunedPrior, currentIds, now);
-  }
-  const tracked: TrackedFreeModel[] = fresh.map((m) => ({
-    id: m.id,
-    name: m.name,
-    context_length: m.context_length,
-    firstSeenAt: merged.get(m.id) ?? now,
-  }));
-  const payload: StoredPayload = {
-    version: STORED_VERSION,
-    updatedAt: now,
-    count: tracked.length,
-    newWindowDays: NEW_WINDOW_DAYS,
-    models: tracked,
-  };
-  await env.FREE_MODELS_KV.put(KV_KEY, JSON.stringify(payload));
-  console.log(`Stored ${tracked.length} free models at ${payload.updatedAt}`);
 }
 
 export default {
