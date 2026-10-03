@@ -125,7 +125,7 @@ function toDecimal(value: unknown): number | null {
   return n;
 }
 
-function isFreePricing(pricing: Record<string, unknown> | null | undefined): boolean {
+export function isFreePricing(pricing: Record<string, unknown> | null | undefined): boolean {
   if (!pricing || typeof pricing !== "object" || Object.keys(pricing).length === 0) return false;
   let hasNumeric = false;
   for (const v of Object.values(pricing)) {
@@ -137,7 +137,7 @@ function isFreePricing(pricing: Record<string, unknown> | null | undefined): boo
   return hasNumeric;
 }
 
-function isFreeModel(modelId: unknown, pricing: Record<string, unknown> | null | undefined): boolean {
+export function isFreeModel(modelId: unknown, pricing: Record<string, unknown> | null | undefined): boolean {
   if (typeof modelId !== "string" || !(modelId.endsWith(FREE_SUFFIX) || modelId.startsWith(STEALTH_MARKER))) return false;
   return isFreePricing(pricing);
 }
