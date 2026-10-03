@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -15,6 +17,7 @@ FREE_SUFFIX = ":free"
 STEALTH_MARKER = "stealth/"
 POST_CHAR_LIMIT = 300
 SAFETY_MARGIN = 4
+LAST_POSTED_FILE = Path(".github/bluesky-last-posted.json")
 
 
 @dataclass(frozen=True)
@@ -144,6 +147,26 @@ def build_post_texts(models: list[Model]) -> list[str]:
     return split_into_posts(lines, header)
 
 
+def load_last_posted_model_ids() -> list[str] | None:
+    try:
+        payload = json.loads(LAST_POSTED_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    model_ids = payload.get("model_ids") if isinstance(payload, dict) else None
+    if not isinstance(model_ids, list) or not all(isinstance(m, str) for m in model_ids):
+        return None
+    return sorted(model_ids)
+
+
+def save_last_posted_model_ids(model_ids: list[str]) -> None:
+    LAST_POSTED_FILE.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "model_ids": sorted(model_ids),
+        "posted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    LAST_POSTED_FILE.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def get_required_env(name: str) -> str:
     value = os.getenv(name)
     if value is None or value == "":
@@ -192,6 +215,13 @@ def post_sequence(client: Client, texts: list[str]) -> None:
 def main() -> int:
     try:
         models = fetch_models()
+        model_ids = sorted(m.model_id for m in models)
+
+        last_ids = load_last_posted_model_ids()
+        if last_ids is not None and model_ids == last_ids:
+            print("No changes since last post, skipping.", flush=True)
+            return 0
+
         posts = build_post_texts(models)
 
         print(f"Found {len(models)} free models", flush=True)
@@ -199,6 +229,8 @@ def main() -> int:
 
         client = create_bluesky_client()
         post_sequence(client, posts)
+
+        save_last_posted_model_ids(model_ids)
 
         print("Done", flush=True)
         return 0
